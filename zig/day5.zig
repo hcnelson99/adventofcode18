@@ -16,48 +16,27 @@ pub fn destructivePair(x: u8, y: u8) bool {
     return (x + 32 == y) or (x == y + 32);
 }
 
-// pub fn countRemaining(list: *std.LinkedList(u8)) usize {
-//     var done = false;
-//     while (!done) {
-//         done = true;
-//         var it = list.first;
-//         while (it) |node| {
-//             if (node.next) |next| {
-//                 if (destructivePair(node.data, next.data)) {
-//                     list.remove(node);
-//                     list.remove(next);
-//                     done = false;
-//                     it = node.next;
-//                 }
-//             } 
-//             if (it) |n| {
-//                 it = n.next;
-//             }
-//         }
-//     }
-//     return list.len;
-// }
-
-pub fn countRemaining(alloc: *mem.Allocator, list: *const std.LinkedList(u8), c: ?u8) !usize {
-    var compact = std.LinkedList(u8).init();
+pub fn countRemaining(alloc: *mem.Allocator, buf: []u8, c: ?u8) !usize {
+    var compact = std.ArrayList(u8).init(alloc);
     
-    var it = list.first;
-    while (it) |node| : (it = node.next) {
-        if (c) |x|
-            if (toLower(node.data) == x)  continue;
-        if (compact.last) |last| {
-            if (destructivePair(last.data, node.data)) {
-                compact.remove(last);
+    var i : usize = 0;
+    while (i < buf.len) : (i += 1) {
+        var x = buf[i];
+        if (c) |f|
+            if (toLower(x) == f)  continue;
+
+        if (compact.count() > 0) {
+            var last = compact.at(compact.count() - 1);
+            if (destructivePair(last, x)) {
+                _ = compact.pop();
             } else {
-                var n = try compact.createNode(node.data, alloc);
-                compact.append(n);
+                try compact.append(x);
             }
         } else {
-            var n = try compact.createNode(node.data, alloc);
-            compact.append(n);
+            try compact.append(x);
         }
     }
-    return compact.len;
+    return compact.count();
 }
 
 pub fn main() !void {
@@ -74,20 +53,13 @@ pub fn main() !void {
 
     var input = try io.readLineFrom(&input_stream.stream, &buf);
 
-    var list = std.LinkedList(u8).init();
 
-    for (input) |x| {
-        var n = try list.createNode(x, alloc);
-        // defer list.destroyNode(n, alloc);
-        list.append(n);
-    }
-
-    try stdout.print("{}\n", try countRemaining(alloc, &list, null));
+    try stdout.print("{}\n", try countRemaining(alloc, buf.toSlice(), null));
 
     var min: usize = std.math.maxInt(usize);
     var c: u8 = 'a';
     while (c <= 'z') : (c += 1) {
-        min = std.math.min(min, try countRemaining(alloc, &list, c));
+        min = std.math.min(min, try countRemaining(alloc, buf.toSlice(), c));
     }
 
     try stdout.print("{}\n", min);
